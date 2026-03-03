@@ -44,9 +44,9 @@ All-in-One WP Migration is one of the most popular WordPress migration tools, bu
 
 == Frequently Asked Questions ==
 
-= Why can I import large files even though my server's upload_max_filesize is low? =
+= Will this work if my hosting has a low upload_max_filesize? =
 
-All-in-One WP Migration's uploader splits every file into 5 MB chunks. Each individual HTTP request stays well within typical PHP limits. The only thing stopping you was a JavaScript check that compared the *total* file size against your server's reported limit, and this plugin removes that check.
+Yes. All-in-One WP Migration's uploader splits every file into 5 MB chunks. Each individual HTTP request stays well within typical PHP limits. The only thing blocking large imports was a JavaScript check that compared the *total* file size against your server's reported limit, and this plugin removes that check.
 
 = Do I still need to change php.ini or .htaccess? =
 
@@ -77,10 +77,6 @@ max_input_time = 600
 = What does this plugin actually do? =
 
 It hooks into the free version of All-in-One WP Migration using standard WordPress APIs (`upload_size_limit` filter, `wp_add_inline_script`) and raises the limits that the free plugin enforces in JavaScript. The free plugin already uploads in 5 MB chunks and has full server-side restore support. This plugin simply removes the client-side gates that prevent you from using those capabilities with large files.
-
-= Is this plugin legal / safe to distribute? =
-
-Yes. It uses only WordPress's public hook system. No third-party code is copied, modified, or redistributed. All-in-One WP Migration is GPL-licensed, and WordPress hooks are designed for exactly this kind of companion add-on.
 
 = Can I use a code snippet instead of installing this plugin? =
 

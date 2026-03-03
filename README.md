@@ -93,17 +93,13 @@ add_action( 'admin_init', function () {
 
 ## FAQ
 
-**Why can I import large files even though my server's `upload_max_filesize` is low?**
+**Will this work if my hosting has a low `upload_max_filesize`?**
 
-All-in-One WP Migration splits every file into 5 MB chunks. Each HTTP request stays well within typical PHP limits. The only thing stopping you was a JavaScript check, and this plugin removes it.
+Yes. All-in-One WP Migration splits every file into 5 MB chunks, so each HTTP request stays well within typical PHP limits. The only thing blocking large imports was a JavaScript check, and this plugin removes it.
 
 **Do I still need to change php.ini or .htaccess?**
 
 Usually not. Since uploads happen in 5 MB chunks, `upload_max_filesize` and `post_max_size` only need to be above 5 MB, which almost every host already has. If your host is unusually restrictive, see the [readme.txt](readme.txt) for manual overrides.
-
-**Is this legal?**
-
-Yes. It uses only WordPress's public hook system. No third-party code is copied, modified, or redistributed. All-in-One WP Migration is GPL-licensed, and WordPress hooks are designed for exactly this kind of companion add-on.
 
 ## Support
 
