@@ -1,0 +1,16 @@
+{
+    "name": "shameemreza/upload-unlocker-for-aiam",
+    "description": "Upload Unlocker for All in All Migration",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Shameem Reza",
+            "email": "shameemreza776@gmail.com"
+        }
+    ],
+    "require-dev": {
+        "szepeviktor/phpstan-wordpress": "^2.0",
+        "phpstan/phpstan": "^2.1"
+    }
+}

@@ -1,0 +1,8 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+parameters:
+    level: 2
+    paths:
+        - upload-unlocker-for-aiam.php
+    excludePaths:
+        - vendor/

@@ -1,0 +1,4 @@
+/vendor/
+composer.lock
+blog-post-draft.md
+*.DS_Store
