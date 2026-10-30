@@ -4,7 +4,7 @@ Tags: migration, upload limit, backup, import, restore
 Requires at least: 5.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,7 +50,7 @@ The full walkthrough, including how to raise the PHP limits, is in [Increase the
 = How It Works =
 
 * Uses only standard WordPress APIs: `upload_size_limit` filter, `wp_add_inline_script`, and `wp_raise_memory_limit`.
-* Upload backup posts the file to `admin-ajax.php` in pieces of up to 5 MB, each under your `post_max_size` and `upload_max_filesize`. The pieces are joined in the backups folder, and the backup shows in the list once the last one arrives. Only users who can import sites can use it, and it only accepts `.wpress` files.
+* Upload backup posts the file to `admin-ajax.php` in pieces of up to 5 MB, each under your `post_max_size` and `upload_max_filesize`. If the web server in front of PHP has a smaller limit, such as nginx's `client_max_body_size`, it answers 413 and the button halves the piece size and sends that piece again, down to 256 KB. The pieces are joined in the backups folder, and the backup shows in the list once the last one arrives. Only users who can import sites can use it, and it only accepts `.wpress` files.
 * Restore works by registering a small JavaScript class, `Ai1wm.FreeExtensionRestore`, that the Backups page already checks for. It runs the migration plugin's own import in manual mode with the backup file on disk, so there's no re-upload.
 * **Does not modify** any All-in-One WP Migration plugin files.
 * All changes are scoped to migration admin screens only.
@@ -75,6 +75,12 @@ The full walkthrough, including how to raise the PHP limits, is in [Increase the
 On the Backups page, yes. Upload backup sends the file in pieces that fit under your limits, and Restore reads it from the server's disk. The server needs to accept uploads of at least 1 MB.
 
 On the Import page, no. The free All-in-One WP Migration plugin sends the whole file in one request there, so a backup bigger than `upload_max_filesize` or `post_max_size` fails. Use the Backups page, or raise both limits.
+
+= My host uses nginx with a 1 MB upload limit. Does Upload backup still work? =
+
+Yes. nginx's default `client_max_body_size` is 1 MB, which is below PHP's limit on many hosts. When nginx turns a piece down with a 413, the button halves the piece size and tries again, then keeps the size that works for the rest of the upload. If even 256 KB pieces are turned down, it stops and tells you to ask your host to raise the limit.
+
+Developers can set the piece size with the `aiam_upload_chunk_size` filter, in bytes. It's kept between 256 KB and what PHP's limits allow.
 
 = Do I still need to change php.ini or .htaccess? =
 
@@ -164,6 +170,10 @@ add_action( 'admin_init', function () {
 `
 
 == Changelog ==
+
+= 1.1.1 =
+* Fixed Upload backup stopping on servers whose web server limit is below PHP's, such as nginx's default 1 MB `client_max_body_size`. On a 413, the button now halves the piece size and tries the same piece again, down to 256 KB.
+* Added the `aiam_upload_chunk_size` filter to set the piece size.
 
 = 1.1.0 =
 * Added an Upload backup button on the Backups page. It uploads a `.wpress` file in pieces that fit under the server's PHP limits, so a large backup can be restored without SFTP.

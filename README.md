@@ -4,7 +4,7 @@
 
 Upload Unlocker for All in All Migration is a free WordPress plugin for [All-in-One WP Migration](https://wordpress.org/plugins/all-in-one-wp-migration/). It lets you import and restore a `.wpress` backup that's bigger than your server's upload limit, without the paid Unlimited Extension, without SFTP, and without editing php.ini. You upload the backup from the Backups page in small pieces, then click Restore. No All-in-One WP Migration files are changed.
 
-[![Version 1.1.0](https://img.shields.io/badge/version-1.1.0-blue)](readme.txt)
+[![Version 1.1.1](https://img.shields.io/badge/version-1.1.1-blue)](readme.txt)
 [![Tested up to WordPress 7.1](https://img.shields.io/badge/WordPress-tested%207.1-blue)](https://wordpress.org/download/)
 [![Requires PHP 7.4](https://img.shields.io/badge/PHP-7.4%2B-blue)](https://www.php.net/)
 [![License: GPLv2 or later](https://img.shields.io/badge/license-GPLv2%20or%20later-blue)](LICENSE)
@@ -25,7 +25,7 @@ A backup under your server's limit still imports from **All-in-One WP Migration 
 | Feature | How |
 |---|---|
 | **No import size check** | Removes the JavaScript file-size gate on the Import page. Your server's PHP limits still apply (see below) |
-| **Upload backup button** | Sends a `.wpress` file to the Backups page in pieces of up to 5 MB, each under your server's PHP limits |
+| **Upload backup button** | Sends a `.wpress` file to the Backups page in pieces of up to 5 MB, each under your server's PHP limits. If nginx or another web server has a smaller limit, it steps down to smaller pieces on its own |
 | **Restore from Backups** | Restore on the Backups page runs for any `.wpress` file in `wp-content/ai1wm-backups`, with no upload |
 | **Higher PHP memory** | Calls `wp_raise_memory_limit()` when a migration page loads |
 | **Clean UI** | Replaces the upsell notice with a simple "Unlimited" confirmation |
@@ -133,6 +133,10 @@ Into `wp-content/ai1wm-backups`, the same folder All-in-One WP Migration uses fo
 **Who can upload backups?**
 
 Only users All-in-One WP Migration lets import a site: administrators on a single site, and super admins on multisite.
+
+**My host uses nginx with a 1 MB upload limit. Does Upload backup still work?**
+
+Yes. When nginx turns a piece down with a 413, the button halves the piece size and tries again, down to 256 KB, then keeps the size that works. If even 256 KB is turned down, it stops and tells you to ask your host to raise `client_max_body_size`. Developers can set the piece size with the `aiam_upload_chunk_size` filter, in bytes.
 
 **Do I still need to change php.ini or .htaccess?**
 
