@@ -34,7 +34,7 @@ No migration plugin files are touched. Everything is scoped to migration admin s
 
 ### The Import page still has your server's limits
 
-All-in-One WP Migration 7.113 sends the whole backup in one request from the Import page. This plugin can't change your server's `post_max_size` or `upload_max_filesize`, so a backup bigger than either one still fails on the Import page, even though it says Unlimited.
+The free All-in-One WP Migration plugin sends the whole backup in one request from the Import page. It has never split browser uploads into chunks: every release I checked from 6.77 (2019) to 7.113 sends the file in a single request. This plugin can't change your server's `post_max_size` or `upload_max_filesize`, so a backup bigger than either one still fails on the Import page, even though it says Unlimited.
 
 For a large backup, go to **All-in-One WP Migration > Backups**, click **Upload backup**, and choose the `.wpress` file. When the page reloads with the backup in the list, click **Restore**. The server needs to accept uploads of at least 1 MB. You can also copy the file into `wp-content/ai1wm-backups` with SFTP, or raise both PHP limits above the backup size so the Import page works.
 
@@ -111,7 +111,7 @@ add_action( 'admin_init', function () {
 
 **Will this work if my hosting has a low `upload_max_filesize`?**
 
-On the Backups page, yes. Upload backup sends the file in pieces that fit under your limits, and Restore reads it from disk. The server needs to accept uploads of at least 1 MB. On the Import page, no. All-in-One WP Migration 7.113 sends the whole file in one request, so a backup over `upload_max_filesize` or `post_max_size` fails there.
+On the Backups page, yes. Upload backup sends the file in pieces that fit under your limits, and Restore reads it from disk. The server needs to accept uploads of at least 1 MB. On the Import page, no. The free All-in-One WP Migration plugin sends the whole file in one request, so a backup over `upload_max_filesize` or `post_max_size` fails there.
 
 **Do I still need to change php.ini or .htaccess?**
 
