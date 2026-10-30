@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Upload Unlocker for All in All Migration
  * Plugin URI:  https://shameemreza.com/increase-upload-limit-for-all-in-one-wp-migration-plugin/
- * Description: Removes the import size check and enables Restore on the Backups page for All-in-One WP Migration.
- * Version:     1.0.1
+ * Description: Removes the import size check, adds an Upload backup button, and enables Restore on the Backups page for All-in-One WP Migration.
+ * Version:     1.1.0
  * Author:      Shameem Reza
  * Author URI:  https://shameem.me
  * License:     GPL-2.0-or-later
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class AIAM_Upload_Unlocker {
 
-	const VERSION = '1.0.1';
+	const VERSION = '1.1.0';
 
 	/**
 	 * Practical ceiling for the upload gate.
@@ -44,6 +44,26 @@ final class AIAM_Upload_Unlocker {
 	 * Basename of the companion migration plugin this add-on targets.
 	 */
 	const TARGET_PLUGIN = 'all-in-one-wp-migration/all-in-one-wp-migration.php';
+
+	/**
+	 * Nonce action for the Backups page chunk upload.
+	 */
+	const UPLOAD_NONCE = 'aiam_upload_chunk';
+
+	/**
+	 * Largest chunk the Backups page uploader sends, in bytes.
+	 */
+	const CHUNK_MAX = 5242880;
+
+	/**
+	 * Room left in each request for the other form fields, in bytes.
+	 */
+	const CHUNK_OVERHEAD = 524288;
+
+	/**
+	 * Below this server limit the uploader isn't offered, in bytes.
+	 */
+	const SERVER_LIMIT_MIN = 1048576;
 
 	/**
 	 * Singleton instance.
@@ -78,6 +98,9 @@ final class AIAM_Upload_Unlocker {
 		add_filter( 'ai1wm_pro', array( $this, 'replace_pro_message' ), 20 );
 		add_action( 'admin_enqueue_scripts', array( $this, 'patch_client_side_limit' ), 99 );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enable_backup_restore' ), 99 );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_upload_script' ), 99 );
+		add_action( 'ai1wm_backups_left_end', array( $this, 'render_upload_button' ) );
+		add_action( 'wp_ajax_aiam_upload_chunk', array( $this, 'handle_upload_chunk' ) );
 		add_action( 'current_screen', array( $this, 'raise_php_limits' ) );
 		add_action( 'admin_menu', array( $this, 'remove_promo_menus' ), 99 );
 		add_filter( 'plugin_action_links_upload-unlocker-for-aiam/upload-unlocker-for-aiam.php', array( $this, 'plugin_action_links' ) );
@@ -236,6 +259,244 @@ final class AIAM_Upload_Unlocker {
 JS;
 
 		wp_add_inline_script( 'ai1wm_backups', $js, 'after' );
+	}
+
+	/**
+	 * Print the Upload backup button under the backups list.
+	 *
+	 * The migration plugin fires this action only when the backups
+	 * folder is writable, and also on the paid extensions' Reset
+	 * page, so the button is limited to the Backups page here.
+	 *
+	 * @return void
+	 */
+	public function render_upload_button(): void {
+		if ( ! $this->is_backups_page() ) {
+			return;
+		}
+
+		if ( 0 === $this->chunk_size() ) {
+			printf(
+				'<p class="aiam-upload-backup-notice">%s</p>',
+				esc_html__( 'Upload backup needs the server to accept uploads of at least 1 MB. Copy the .wpress file into the backups folder with SFTP instead.', 'upload-unlocker-for-aiam' )
+			);
+			return;
+		}
+
+		?>
+		<div id="aiam-upload-backup">
+			<p>
+				<a href="#" id="aiam-upload-backup-button" class="ai1wm-button-gray">
+					<i class="ai1wm-icon-upload"></i>
+					<?php esc_html_e( 'Upload backup', 'upload-unlocker-for-aiam' ); ?>
+				</a>
+				<input type="file" id="aiam-upload-backup-file" accept=".wpress" hidden>
+			</p>
+			<p id="aiam-upload-backup-status" aria-live="polite"></p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Load the Upload backup script on the Backups page.
+	 *
+	 * @return void
+	 */
+	public function enqueue_upload_script(): void {
+		if ( ! $this->is_backups_page() || 0 === $this->chunk_size() ) {
+			return;
+		}
+
+		wp_enqueue_script(
+			'aiam-upload-backup',
+			plugins_url( 'assets/upload-backup.js', __FILE__ ),
+			array(),
+			self::VERSION,
+			true
+		);
+
+		$config = array(
+			'url'       => admin_url( 'admin-ajax.php' ),
+			'nonce'     => wp_create_nonce( self::UPLOAD_NONCE ),
+			'chunkSize' => $this->chunk_size(),
+			'i18n'      => array(
+				/* translators: 1: backup file name, 2: percent uploaded. */
+				'progress' => __( 'Uploading %1$s: %2$s%%', 'upload-unlocker-for-aiam' ),
+				'done'     => __( 'Upload finished. Reloading the backups list...', 'upload-unlocker-for-aiam' ),
+				'wrongExt' => __( 'Choose a .wpress backup made with All-in-One WP Migration.', 'upload-unlocker-for-aiam' ),
+				'failed'   => __( 'The upload stopped.', 'upload-unlocker-for-aiam' ),
+				'network'  => __( 'The server did not answer.', 'upload-unlocker-for-aiam' ),
+				'leave'    => __( 'A backup is still uploading. Leaving this page stops the upload.', 'upload-unlocker-for-aiam' ),
+			),
+		);
+
+		wp_add_inline_script( 'aiam-upload-backup', 'var aiamUpload = ' . wp_json_encode( $config ) . ';', 'before' );
+	}
+
+	/**
+	 * Chunk size for the Backups page uploader, in bytes.
+	 *
+	 * Each request carries one chunk plus a few form fields, so the
+	 * chunk stays under the smaller of post_max_size and
+	 * upload_max_filesize with room to spare.
+	 *
+	 * @return int Chunk size, or 0 when the server limit is too low.
+	 */
+	private function chunk_size(): int {
+		$limits = array();
+		foreach ( array( 'post_max_size', 'upload_max_filesize' ) as $setting ) {
+			$bytes = wp_convert_hr_to_bytes( (string) ini_get( $setting ) );
+			// A value of 0 means no limit.
+			if ( $bytes > 0 ) {
+				$limits[] = $bytes;
+			}
+		}
+
+		$limit = $limits ? min( $limits ) : PHP_INT_MAX;
+		if ( $limit < self::SERVER_LIMIT_MIN ) {
+			return 0;
+		}
+
+		return (int) min( $limit - self::CHUNK_OVERHEAD, self::CHUNK_MAX );
+	}
+
+	/**
+	 * Whether the current request is the migration plugin's Backups page.
+	 *
+	 * @return bool
+	 */
+	private function is_backups_page(): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only picks the admin page, no data is changed.
+		return is_admin() && isset( $_GET['page'] ) && 'ai1wm_backups' === sanitize_key( wp_unslash( $_GET['page'] ) );
+	}
+
+	/**
+	 * Receive one chunk of a backup uploaded from the Backups page.
+	 *
+	 * Chunks arrive in order and are appended to <name>.wpress.part
+	 * in the backups folder.  The list only shows .wpress files, so
+	 * the backup appears once the last chunk renames it.  Each chunk
+	 * stays under the PHP upload limits, which is how a backup bigger
+	 * than those limits gets onto the server.
+	 *
+	 * @return void
+	 */
+	public function handle_upload_chunk(): void {
+		if ( false === check_ajax_referer( self::UPLOAD_NONCE, '_ajax_nonce', false ) ) {
+			$this->send_upload_error( __( 'Your session expired. Reload the page and try again.', 'upload-unlocker-for-aiam' ), 403 );
+		}
+
+		if ( ! current_user_can( 'ai1wm_import_site' ) ) {
+			$this->send_upload_error( __( 'Your account is not allowed to upload backups.', 'upload-unlocker-for-aiam' ), 403 );
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- checked above.
+		$name    = isset( $_POST['name'] ) ? sanitize_file_name( wp_basename( wp_unslash( $_POST['name'] ) ) ) : '';
+		$offset  = isset( $_POST['offset'] ) ? absint( $_POST['offset'] ) : 0;
+		$total   = isset( $_POST['total'] ) ? absint( $_POST['total'] ) : 0;
+		$is_last = isset( $_POST['is_last'] ) && '1' === $_POST['is_last'];
+		// phpcs:enable
+
+		if ( strlen( $name ) <= 7 || '.wpress' !== strtolower( substr( $name, -7 ) ) ) {
+			$this->send_upload_error( __( 'Only .wpress backups made with All-in-One WP Migration can be uploaded here.', 'upload-unlocker-for-aiam' ), 415 );
+		}
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- the upload array is checked field by field.
+		$chunk = isset( $_FILES['chunk'] ) ? $_FILES['chunk'] : null;
+		if ( ! is_array( $chunk ) || ! isset( $chunk['error'], $chunk['tmp_name'] ) ) {
+			$this->send_upload_error( __( 'The server received no file data. Try again.', 'upload-unlocker-for-aiam' ), 400 );
+		}
+
+		if ( UPLOAD_ERR_OK !== (int) $chunk['error'] ) {
+			$too_big = in_array( (int) $chunk['error'], array( UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE ), true );
+			$this->send_upload_error(
+				$too_big
+					? __( 'One piece of the upload was bigger than the server allows. Reload the page and try again.', 'upload-unlocker-for-aiam' )
+					/* translators: %d: PHP upload error code. */
+					: sprintf( __( 'The server could not save part of the upload (PHP upload error %d).', 'upload-unlocker-for-aiam' ), (int) $chunk['error'] ),
+				$too_big ? 413 : 400
+			);
+		}
+
+		if ( ! is_uploaded_file( $chunk['tmp_name'] ) ) {
+			$this->send_upload_error( __( 'The server received no file data. Try again.', 'upload-unlocker-for-aiam' ), 400 );
+		}
+
+		if ( ! defined( 'AI1WM_BACKUPS_PATH' ) ) {
+			$this->send_upload_error( __( 'Could not find the All-in-One WP Migration backups folder.', 'upload-unlocker-for-aiam' ), 500 );
+		}
+
+		$target = AI1WM_BACKUPS_PATH . DIRECTORY_SEPARATOR . $name;
+		$part   = $target . '.part';
+
+		clearstatcache();
+
+		if ( 0 === $offset && file_exists( $target ) ) {
+			$this->send_upload_error(
+				/* translators: %s: backup file name. */
+				sprintf( __( 'A backup named %s is already in the list. Rename the file or delete that backup, then upload again.', 'upload-unlocker-for-aiam' ), $name ),
+				409
+			);
+		}
+
+		$current = file_exists( $part ) ? (int) filesize( $part ) : 0;
+		if ( 0 !== $offset && $current !== $offset ) {
+			$this->send_upload_error( __( 'The upload got out of step with the server.', 'upload-unlocker-for-aiam' ), 409, array( 'size' => $current ) );
+		}
+
+		if ( $offset + (int) filesize( $chunk['tmp_name'] ) > $total ) {
+			$this->send_upload_error( __( 'The upload sent more data than the file size it reported.', 'upload-unlocker-for-aiam' ), 400 );
+		}
+
+		// Offset 0 starts over, which replaces a .part file left by an earlier try.
+		// phpcs:disable WordPress.WP.AlternativeFunctions -- streams a file of any size without loading it into memory.
+		$in      = fopen( $chunk['tmp_name'], 'rb' );
+		$out     = fopen( $part, 0 === $offset ? 'wb' : 'ab' );
+		$written = ( $in && $out ) ? stream_copy_to_stream( $in, $out ) : false;
+		if ( $in ) {
+			fclose( $in );
+		}
+		if ( $out ) {
+			fclose( $out );
+		}
+		// phpcs:enable
+
+		if ( false === $written ) {
+			$this->send_upload_error( __( 'Could not write to the backups folder. Check that it has free space and is writable.', 'upload-unlocker-for-aiam' ), 500 );
+		}
+
+		clearstatcache();
+		$size = (int) filesize( $part );
+
+		if ( ! $is_last ) {
+			wp_send_json_success( array( 'name' => $name, 'size' => $size, 'done' => false ) );
+		}
+
+		if ( $size !== $total ) {
+			wp_delete_file( $part );
+			$this->send_upload_error( __( 'The upload ended before the whole file arrived. Upload it again.', 'upload-unlocker-for-aiam' ), 400 );
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- same folder, so this is a plain rename.
+		if ( file_exists( $target ) || ! rename( $part, $target ) ) {
+			wp_delete_file( $part );
+			$this->send_upload_error( __( 'Could not save the finished backup in the backups folder.', 'upload-unlocker-for-aiam' ), 500 );
+		}
+
+		wp_send_json_success( array( 'name' => $name, 'size' => $size, 'done' => true ) );
+	}
+
+	/**
+	 * Stop the request with a JSON error for the Backups page uploader.
+	 *
+	 * @param  string               $message Error shown to the user.
+	 * @param  int                  $status  HTTP status code.
+	 * @param  array<string, mixed> $extra   Extra response data.
+	 * @return never
+	 */
+	private function send_upload_error( string $message, int $status, array $extra = array() ) {
+		wp_send_json_error( array_merge( array( 'message' => $message ), $extra ), $status );
+		exit;
 	}
 
 	/**
