@@ -1,6 +1,6 @@
 {
     "name": "shameemreza/upload-unlocker-for-aiam",
-    "description": "Upload Unlocker for All in All Migration",
+    "description": "Upload and restore All-in-One WP Migration backups bigger than the server upload limit, for free.",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
     "authors": [
