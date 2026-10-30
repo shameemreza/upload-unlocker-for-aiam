@@ -1,8 +1,8 @@
-# Upload Unlocker for All in All Migration
+# Upload Unlocker: restore large All-in-One WP Migration backups for free
 
-![Upload Unlocker: no import size check, Restore from Backups, no plugin files changed, free](.github/assets/banner.png)
+![Upload Unlocker for All in All Migration: Upload backup button, Restore from Backups, no import size check, free](.github/assets/banner.png)
 
-Adds an Upload backup button and enables Restore on the [All-in-One WP Migration](https://wordpress.org/plugins/all-in-one-wp-migration/) Backups page, so you can restore a backup of any size without the paid extension or SFTP. It also removes the import size check on the Import page. No migration plugin files are modified.
+Upload Unlocker for All in All Migration is a free WordPress plugin for [All-in-One WP Migration](https://wordpress.org/plugins/all-in-one-wp-migration/). It lets you import and restore a `.wpress` backup that's bigger than your server's upload limit, without the paid Unlimited Extension, without SFTP, and without editing php.ini. You upload the backup from the Backups page in small pieces, then click Restore. No All-in-One WP Migration files are changed.
 
 [![Version 1.1.0](https://img.shields.io/badge/version-1.1.0-blue)](readme.txt)
 [![Tested up to WordPress 7.1](https://img.shields.io/badge/WordPress-tested%207.1-blue)](https://wordpress.org/download/)
@@ -10,6 +10,15 @@ Adds an Upload backup button and enables Restore on the [All-in-One WP Migration
 [![License: GPLv2 or later](https://img.shields.io/badge/license-GPLv2%20or%20later-blue)](LICENSE)
 
 ![The Import page with Upload Unlocker active, showing Maximum upload file size: Unlimited](.github/preview.png)
+
+## Restore a backup bigger than your upload limit
+
+1. Install and activate Upload Unlocker next to All-in-One WP Migration.
+2. Go to **All-in-One WP Migration > Backups** and click **Upload backup**.
+3. Choose your `.wpress` file and keep the page open. It shows the percent uploaded, then reloads with the backup in the list.
+4. Click **Restore** next to the backup and confirm.
+
+A backup under your server's limit still imports from **All-in-One WP Migration > Import** as usual.
 
 ## What It Does
 
@@ -29,6 +38,10 @@ On the Import page, the plugin lifts the JavaScript check that compares the file
 - `upload_size_limit` filter
 - `wp_add_inline_script()`
 - `wp_raise_memory_limit()`
+- the `ai1wm_backups_left_end` action, for the Upload backup button
+- the `wp_ajax_aiam_upload_chunk` action, which saves each uploaded piece
+
+The upload endpoint checks a nonce and the same permission as the Backups page on every request, accepts only `.wpress` file names, writes only to the backups folder, and never overwrites a backup that's already there.
 
 No migration plugin files are touched. Everything is scoped to migration admin screens only.
 
@@ -36,7 +49,7 @@ No migration plugin files are touched. Everything is scoped to migration admin s
 
 The free All-in-One WP Migration plugin sends the whole backup in one request from the Import page. This plugin can't change your server's `post_max_size` or `upload_max_filesize`, so a backup bigger than either one still fails on the Import page, even though it says Unlimited.
 
-For a large backup, go to **All-in-One WP Migration > Backups**, click **Upload backup**, and choose the `.wpress` file. When the page reloads with the backup in the list, click **Restore**. The server needs to accept uploads of at least 1 MB. You can also copy the file into `wp-content/ai1wm-backups` with SFTP, or raise both PHP limits above the backup size so the Import page works.
+For a large backup, use the Upload backup button on the Backups page, as in the steps above. The server needs to accept uploads of at least 1 MB. You can also copy the file into `wp-content/ai1wm-backups` with SFTP, or raise both PHP limits above the backup size so the Import page works.
 
 Tested on October 30, 2026 with WordPress 7.1.4, PHP 8.3, All-in-One WP Migration 7.113, an 8 MB server limit, and a 36 MB backup. The Import page failed, and the Upload backup button plus Restore brought the whole site across. The full walkthrough is in [Increase the All-in-One WP Migration upload limit for free](https://shameemreza.com/increase-upload-limit-for-all-in-one-wp-migration-plugin/).
 
@@ -57,7 +70,7 @@ Tested on October 30, 2026 with WordPress 7.1.4, PHP 8.3, All-in-One WP Migratio
 
 ### As a Code Snippet
 
-If you prefer not to install a plugin, add this to your theme's `functions.php` or use a code-snippets plugin like [SnipDrop](https://github.com/shameemreza/snipdrop):
+If you prefer not to install a plugin, add this to your theme's `functions.php` or use a code-snippets plugin like [SnipDrop](https://github.com/shameemreza/snipdrop). The snippet removes the size check, enables Restore and raises memory. It doesn't include the Upload backup button, so you'd copy large backups into `wp-content/ai1wm-backups` with SFTP:
 
 <details>
 <summary>Show snippet</summary>
@@ -112,6 +125,14 @@ add_action( 'admin_init', function () {
 **Will this work if my hosting has a low `upload_max_filesize`?**
 
 On the Backups page, yes. Upload backup sends the file in pieces that fit under your limits, and Restore reads it from disk. The server needs to accept uploads of at least 1 MB. On the Import page, no. The free All-in-One WP Migration plugin sends the whole file in one request, so a backup over `upload_max_filesize` or `post_max_size` fails there.
+
+**Where do uploaded backups go?**
+
+Into `wp-content/ai1wm-backups`, the same folder All-in-One WP Migration uses for Create backup. They stay in the list after a restore, so delete them there when you no longer need them.
+
+**Who can upload backups?**
+
+Only users All-in-One WP Migration lets import a site: administrators on a single site, and super admins on multisite.
 
 **Do I still need to change php.ini or .htaccess?**
 

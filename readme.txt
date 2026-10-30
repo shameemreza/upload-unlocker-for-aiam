@@ -12,7 +12,9 @@ Removes the import size check, adds an Upload backup button, and enables Restore
 
 == Description ==
 
-The free version of All-in-One WP Migration stops imports above your server's upload limit. Its Backups page also sends you to a paid extension when you click Restore.
+The free version of All-in-One WP Migration stops imports above your server's upload limit. Its Backups page also asks you to buy the Unlimited Extension when you click Restore.
+
+Upload Unlocker lets you import and restore a `.wpress` backup of any size for free, without SFTP and without editing php.ini. You upload the backup from the Backups page in small pieces, then click Restore.
 
 **Upload Unlocker for All in All Migration** changes that:
 
@@ -106,9 +108,17 @@ It hooks into the free version of All-in-One WP Migration with standard WordPres
 
 It doesn't change how the Import page sends the file. An upload there still has to fit under your PHP limits.
 
+= Where do uploaded backups go? =
+
+Into `wp-content/ai1wm-backups`, the same folder All-in-One WP Migration uses for Create backup. They stay in the list after a restore, so delete them there when you no longer need them.
+
+= Who can upload backups? =
+
+Only users All-in-One WP Migration lets import a site: administrators on a single site, and super admins on multisite.
+
 = Can I use a code snippet instead of installing this plugin? =
 
-Yes. Add this to your theme's `functions.php` or use a code-snippets plugin like [SnipDrop](https://github.com/shameemreza/snipdrop):
+Yes, for the size check, Restore and memory. The snippet doesn't include the Upload backup button, so you'd copy large backups into `wp-content/ai1wm-backups` with SFTP. Add this to your theme's `functions.php` or use a code-snippets plugin like [SnipDrop](https://github.com/shameemreza/snipdrop):
 
 `
 // Raise the WordPress-reported upload limit on migration pages.
