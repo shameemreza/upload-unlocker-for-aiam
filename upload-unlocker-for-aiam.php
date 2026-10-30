@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: Upload Unlocker for All in All Migration
- * Plugin URI:  https://shameem.me/increase-upload-limit-for-all-in-one-wp-migration-plugin/
- * Description: Removes upload file-size limits, enables backup restore, and raises PHP memory for All-in-One WP Migration.
- * Version:     1.0.0
+ * Plugin URI:  https://shameemreza.com/increase-upload-limit-for-all-in-one-wp-migration-plugin/
+ * Description: Removes the import size check and enables Restore on the Backups page for All-in-One WP Migration.
+ * Version:     1.0.1
  * Author:      Shameem Reza
  * Author URI:  https://shameem.me
  * License:     GPL-2.0-or-later
@@ -24,15 +24,19 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class AIAM_Upload_Unlocker {
 
-	const VERSION = '1.0.0';
+	const VERSION = '1.0.1';
 
 	/**
 	 * Practical ceiling for the upload gate.
 	 *
-	 * AI1WM uses 5 MB chunks so the real file size is irrelevant,
-	 * but the JS gate still needs a number.  We use a value high
-	 * enough that it will never be the bottleneck (~ 8 PB).  This
-	 * is Number.MAX_SAFE_INTEGER so it stays lossless in JavaScript.
+	 * The JS gate needs a number, so this one is high enough that
+	 * the gate never blocks a file (~ 8 PB).  It is
+	 * Number.MAX_SAFE_INTEGER so it stays lossless in JavaScript.
+	 *
+	 * This only lifts the check in the browser.  AI1WM 7.113 sends
+	 * the whole backup in one request, so the server's
+	 * post_max_size and upload_max_filesize still decide what a
+	 * browser upload can take.
 	 */
 	const UPLOAD_LIMIT = 9007199254740991;
 
@@ -117,8 +121,11 @@ final class AIAM_Upload_Unlocker {
 	}
 
 	/**
-	 * Bump the PHP memory limit on migration screens so large
-	 * imports have enough room.
+	 * Bump the PHP memory limit on migration screens.
+	 *
+	 * This runs on current_screen, which fires on admin page loads
+	 * but not in admin-ajax.php, where the import steps run.  So it
+	 * doesn't raise memory for the import itself.
 	 *
 	 * Execution-time limits are NOT raised here because the
 	 * migration plugin already calls set_time_limit(0) internally
@@ -157,14 +164,20 @@ final class AIAM_Upload_Unlocker {
 		return '<p class="max-upload-size">'
 			. '<span style="color:#23282d">' . esc_html__( 'Maximum upload file size: Unlimited.', 'upload-unlocker-for-aiam' ) . '</span>'
 			. '<br><span style="font-size:12px;color:#999">'
-			. '<a href="https://shameem.me/increase-upload-limit-for-all-in-one-wp-migration-plugin/" target="_blank" rel="noopener" style="color:#999">Upload Unlocker</a>'
+			. '<a href="https://shameemreza.com/increase-upload-limit-for-all-in-one-wp-migration-plugin/" target="_blank" rel="noopener" style="color:#999">Upload Unlocker</a>'
 			. ' &middot; <a href="https://ko-fi.com/shameemreza" target="_blank" rel="noopener" style="color:#999">Buy me a coffee</a>'
 			. '</span></p>';
 	}
 
 	/**
-	 * Override the client-side file-size gate so the built-in
-	 * chunked uploader can proceed with large files.
+	 * Override the client-side file-size gate so the import page
+	 * accepts files above the reported limit.
+	 *
+	 * The uploader still posts the whole file in one request, so
+	 * the upload only succeeds when it fits under the server's
+	 * post_max_size and upload_max_filesize.  For a bigger backup,
+	 * copy it into wp-content/ai1wm-backups and use Restore on the
+	 * Backups page.
 	 *
 	 * @return void
 	 */
@@ -192,6 +205,8 @@ final class AIAM_Upload_Unlocker {
 	 * FreeExtensionRestore class before showing the upgrade
 	 * prompt.  We define that class so clicking "Restore"
 	 * feeds the backup file into the existing import pipeline.
+	 * The file is already on disk, so nothing is uploaded and the
+	 * PHP upload limits don't apply.
 	 *
 	 * @return void
 	 */
