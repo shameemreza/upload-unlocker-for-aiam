@@ -34,7 +34,7 @@ No migration plugin files are touched. Everything is scoped to migration admin s
 
 ### The Import page still has your server's limits
 
-The free All-in-One WP Migration plugin sends the whole backup in one request from the Import page. It has never split browser uploads into chunks: every release I checked from 6.77 (2019) to 7.113 sends the file in a single request. This plugin can't change your server's `post_max_size` or `upload_max_filesize`, so a backup bigger than either one still fails on the Import page, even though it says Unlimited.
+The free All-in-One WP Migration plugin sends the whole backup in one request from the Import page. This plugin can't change your server's `post_max_size` or `upload_max_filesize`, so a backup bigger than either one still fails on the Import page, even though it says Unlimited.
 
 For a large backup, go to **All-in-One WP Migration > Backups**, click **Upload backup**, and choose the `.wpress` file. When the page reloads with the backup in the list, click **Restore**. The server needs to accept uploads of at least 1 MB. You can also copy the file into `wp-content/ai1wm-backups` with SFTP, or raise both PHP limits above the backup size so the Import page works.
 

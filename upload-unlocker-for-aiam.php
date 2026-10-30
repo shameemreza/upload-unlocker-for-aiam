@@ -33,9 +33,8 @@ final class AIAM_Upload_Unlocker {
 	 * the gate never blocks a file (~ 8 PB).  It is
 	 * Number.MAX_SAFE_INTEGER so it stays lossless in JavaScript.
 	 *
-	 * This only lifts the check in the browser.  The free AI1WM
-	 * import page sends the whole backup in one request (every
-	 * release checked from 6.77 to 7.113 does), so the server's
+	 * This only lifts the check in the browser.  The AI1WM import
+	 * page sends the whole backup in one request, so the server's
 	 * post_max_size and upload_max_filesize still decide what a
 	 * browser upload can take.
 	 */

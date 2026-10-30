@@ -25,7 +25,7 @@ The free version of All-in-One WP Migration stops imports above your server's up
 
 = The Import page still has your server's limits =
 
-The free All-in-One WP Migration plugin sends the whole backup in one request from the Import page. It has never split browser uploads into chunks: Every release I checked from 6.77 (2019) to 7.113 sends the file in a single request. This plugin can't change your server's `post_max_size` or `upload_max_filesize`. If the backup is bigger than either one, the Import page still fails, even though it says Unlimited. You'll see "POST Content-Length exceeds the limit", then "Could not open file for reading".
+The free All-in-One WP Migration plugin sends the whole backup in one request from the Import page. This plugin can't change your server's `post_max_size` or `upload_max_filesize`. If the backup is bigger than either one, the Import page still fails, even though it says Unlimited. You'll see "POST Content-Length exceeds the limit", then "Could not open file for reading".
 
 You can get around it in three ways:
 
@@ -159,7 +159,7 @@ add_action( 'admin_init', function () {
 * Added an Upload backup button on the Backups page. It uploads a `.wpress` file in pieces that fit under the server's PHP limits, so a large backup can be restored without SFTP.
 
 = 1.0.1 =
-* Fixed the readme and code comments. They said All-in-One WP Migration uploads in 5 MB chunks, which was never true for the free plugin. It sends the whole backup in one request, so the server's `post_max_size` and `upload_max_filesize` still limit the Import page.
+* Updated the readme and code comments: the Import page sends the whole backup in one request, so the server's `post_max_size` and `upload_max_filesize` still limit it.
 * Documented restoring large backups from the Backups page.
 * Clarified that the memory raise runs on migration page loads, not during the import steps.
 * Updated the plugin and readme links to shameemreza.com.
