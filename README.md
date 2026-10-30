@@ -63,9 +63,9 @@ Tested on October 30, 2026 with WordPress 7.1.4, PHP 8.3, All-in-One WP Migratio
 
 ### As a Plugin
 
-1. Download the [latest release](https://github.com/shameemreza/upload-unlocker-for-aiam/releases).
-2. Upload the `upload-unlocker-for-aiam` folder to `/wp-content/plugins/`.
-3. Activate **Upload Unlocker for All in All Migration** from the Plugins screen.
+1. Download [upload-unlocker-for-aiam.zip](https://github.com/shameemreza/upload-unlocker-for-aiam/releases/latest/download/upload-unlocker-for-aiam.zip) from the latest release.
+2. In WordPress, go to **Plugins > Add New Plugin > Upload Plugin**, choose the zip, and click **Install Now**.
+3. Activate **Upload Unlocker for All in All Migration**.
 4. For a large backup, go to **All-in-One WP Migration > Backups**, click **Upload backup**, then click **Restore** next to it. A backup under your server's limit imports from **All-in-One WP Migration > Import** as usual.
 
 ### As a Code Snippet
