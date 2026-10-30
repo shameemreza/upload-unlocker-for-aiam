@@ -1,8 +1,15 @@
 # Upload Unlocker for All in All Migration
 
+![Upload Unlocker: no import size check, Restore from Backups, no plugin files changed, free](.github/assets/banner.png)
+
 Removes the import size check on [All-in-One WP Migration](https://wordpress.org/plugins/all-in-one-wp-migration/) and enables Restore on the Backups page, so you can restore a backup of any size without the paid extension. No migration plugin files are modified.
 
-![Preview](.github/preview.png)
+[![Version 1.0.1](https://img.shields.io/badge/version-1.0.1-blue)](readme.txt)
+[![Tested up to WordPress 7.1](https://img.shields.io/badge/WordPress-tested%207.1-blue)](https://wordpress.org/download/)
+[![Requires PHP 7.4](https://img.shields.io/badge/PHP-7.4%2B-blue)](https://www.php.net/)
+[![License: GPLv2 or later](https://img.shields.io/badge/license-GPLv2%20or%20later-blue)](LICENSE)
+
+![The Import page with Upload Unlocker active, showing Maximum upload file size: Unlimited](.github/preview.png)
 
 ## What It Does
 
