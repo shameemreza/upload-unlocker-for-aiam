@@ -3,7 +3,7 @@
  * Plugin Name: Upload Unlocker for All in All Migration
  * Plugin URI:  https://shameemreza.com/increase-upload-limit-for-all-in-one-wp-migration-plugin/
  * Description: Removes the import size check, adds an Upload backup button, and enables Restore on the Backups page for All-in-One WP Migration.
- * Version:     1.1.0
+ * Version:     1.1.1
  * Author:      Shameem Reza
  * Author URI:  https://shameem.me
  * License:     GPL-2.0-or-later
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class AIAM_Upload_Unlocker {
 
-	const VERSION = '1.1.0';
+	const VERSION = '1.1.1';
 
 	/**
 	 * Practical ceiling for the upload gate.
@@ -54,6 +54,11 @@ final class AIAM_Upload_Unlocker {
 	 * Largest chunk the Backups page uploader sends, in bytes.
 	 */
 	const CHUNK_MAX = 5242880;
+
+	/**
+	 * Smallest chunk the uploader steps down to after a 413, in bytes.
+	 */
+	const CHUNK_MIN = 262144;
 
 	/**
 	 * Room left in each request for the other form fields, in bytes.
@@ -318,8 +323,9 @@ JS;
 		$config = array(
 			'url'       => admin_url( 'admin-ajax.php' ),
 			'nonce'     => wp_create_nonce( self::UPLOAD_NONCE ),
-			'chunkSize' => $this->chunk_size(),
-			'i18n'      => array(
+			'chunkSize'    => $this->chunk_size(),
+			'minChunkSize' => self::CHUNK_MIN,
+			'i18n'         => array(
 				/* translators: 1: backup file name, 2: percent uploaded. */
 				'progress' => __( 'Uploading %1$s: %2$s%%', 'upload-unlocker-for-aiam' ),
 				'done'     => __( 'Upload finished. Reloading the backups list...', 'upload-unlocker-for-aiam' ),
@@ -327,6 +333,7 @@ JS;
 				'failed'   => __( 'The upload stopped.', 'upload-unlocker-for-aiam' ),
 				'network'  => __( 'The server did not answer.', 'upload-unlocker-for-aiam' ),
 				'leave'    => __( 'A backup is still uploading. Leaving this page stops the upload.', 'upload-unlocker-for-aiam' ),
+				'tooLarge' => __( 'Your web server turned down even 256 KB pieces. Ask your host to raise its request size limit (client_max_body_size on nginx), or copy the file into wp-content/ai1wm-backups with SFTP.', 'upload-unlocker-for-aiam' ),
 			),
 		);
 
@@ -338,7 +345,9 @@ JS;
 	 *
 	 * Each request carries one chunk plus a few form fields, so the
 	 * chunk stays under the smaller of post_max_size and
-	 * upload_max_filesize with room to spare.
+	 * upload_max_filesize with room to spare.  A web server limit
+	 * below PHP's can't be read from here, so the script halves the
+	 * size whenever a chunk gets a 413.
 	 *
 	 * @return int Chunk size, or 0 when the server limit is too low.
 	 */
@@ -357,7 +366,20 @@ JS;
 			return 0;
 		}
 
-		return (int) min( $limit - self::CHUNK_OVERHEAD, self::CHUNK_MAX );
+		$php_max = $limit - self::CHUNK_OVERHEAD;
+
+		/**
+		 * Filters the size of each piece the Upload backup button sends.
+		 *
+		 * Set it below the web server's request body limit, such as
+		 * nginx's client_max_body_size, to skip the 413 step-down.  The
+		 * result is kept between 256 KB and what PHP's limits allow.
+		 *
+		 * @param int $size Piece size in bytes.
+		 */
+		$size = (int) apply_filters( 'aiam_upload_chunk_size', (int) min( $php_max, self::CHUNK_MAX ) );
+
+		return (int) max( self::CHUNK_MIN, min( $size, $php_max ) );
 	}
 
 	/**

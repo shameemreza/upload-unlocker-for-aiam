@@ -19,6 +19,9 @@
 	var retries = 2;
 	var busy    = false;
 
+	// Starts at the size PHP allows and only ever gets smaller.
+	var chunkSize = config.chunkSize;
+
 	if ( ! button || ! input || ! status ) {
 		return;
 	}
@@ -41,7 +44,7 @@
 
 	// One request. Resolves with the parsed JSON, plus the HTTP status.
 	function sendChunk( file, offset ) {
-		var end  = Math.min( offset + config.chunkSize, file.size );
+		var end  = Math.min( offset + chunkSize, file.size );
 		var form = new FormData();
 
 		form.append( 'action', 'aiam_upload_chunk' );
@@ -68,6 +71,18 @@
 		return sendChunk( file, offset ).then( function ( json ) {
 			if ( json.success ) {
 				return json.data.size;
+			}
+
+			// A web server limit below PHP's, such as nginx's client_max_body_size,
+			// answers 413 before PHP runs. Send the same piece again at half the size.
+			if ( 413 === json.status ) {
+				if ( chunkSize <= config.minChunkSize ) {
+					var tooLarge = new Error( config.i18n.tooLarge );
+					tooLarge.final = true;
+					throw tooLarge;
+				}
+				chunkSize = Math.max( config.minChunkSize, Math.floor( chunkSize / 2 ) );
+				return sendWithRetry( file, offset, attempt );
 			}
 
 			// Out of step: the server says where to carry on from.
